@@ -1,158 +1,133 @@
 apiVersion: v1
-kind: Service
+kind: Template
 metadata:
-  name: ace-ibm-ace
+  name: mq-app
   labels:
-    app: ibm-ace
-    chart: ibm-ace
-    release: ace
-    heritage: Tiller
-spec:
-  type: NodePort
-  ports:
-  - port: 7600
-    targetPort: 7600
-    protocol: TCP
-    name: webui
-  - port: 7800
-    targetPort: 7800
-    protocol: TCP
-    name: ace-http
-  - port: 7843
-    targetPort: 7843
-    protocol: TCP
-    name: ace-https
-  selector:
-    app: "ibm-ace"
-    release: "ace"
+    app: mq-app
+objects:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ace-ibm-ace
+    labels:
+      app: ibm-ace    
+  spec:
+    type: NodePort
+    ports:
+    - port: 7600
+      targetPort: 7600
+      protocol: TCP
+      name: webui
+    - port: 7800
+      targetPort: 7800
+      protocol: TCP
+      name: ace-http
+    - port: 7843
+      targetPort: 7843
+      protocol: TCP
+      name: ace-https
+    selector:
+      app: "ibm-ace"
+      release: "ace"
 
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: ace-ibm-ace
-  labels:
-    app: ibm-ace
-    serverName: "ace"
-spec:
-  replicas: 3
-  template:
-    metadata:
-      name: ace-ibm-ace
-      labels:
-        app: ibm-ace
-    spec:
-      containers:
-        - name: ace-ibm-ace
-          image: registry.ixpress.icicibank.com:5000/aceapp
-          ports:
-            - containerPort: 7600
-              name: webui
-            - containerPort: 7800
-              name: ace-http
-            - containerPort: 7843
-              name: ace-https
-          env:
-            - name: LICENSE
-              value: "accept"
-            - name: USE_QMGR
-              value: "false"
-            - name: ACE_SERVER_NAME
-              value: "ace"
-            - name: SERVICE_NAME
-              value: ace-ibm-ace
-            - name: LOG_FORMAT
-              value: "json"
-            - name: ACE_ENABLE_METRICS
-              value: "true"
-            - name: "ACE_KEYSTORE_PASSWORD"
-              valueFrom:
-                 secretKeyRef:
-                   name: ace-ibm-ace-configuration
-                   optional: true
-                   key: keystorePassword
-            - name: "ACE_TRUSTSTORE_PASSWORD"
-              valueFrom:
-                 secretKeyRef:
-                   name: ace-ibm-ace-configuration
-                   optional: true
-                   key: truststorePassword
-          volumeMounts:
-            - name: webusers
-              mountPath: "/home/aceuser/initial-config/webusers"
-            - name: odbcini
-              mountPath: "/home/aceuser/initial-config/odbcini"
-            - name: policy
-              mountPath: "/home/aceuser/initial-config/policy"
-            - name: serverconf
-              mountPath: "/home/aceuser/initial-config/serverconf"
-            - name: setdbparms
-              mountPath: "/home/aceuser/initial-config/setdbparms"
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 1000
-            privileged: false
-            capabilities:
-              add:
-              - SETPCAP
-              - AUDIT_WRITE
-              - CHOWN
-              - NET_RAW
-              - DAC_OVERRIDE
-              - FOWNER
-              - FSETID
-              - KILL
-              - SETUID
-              - SETGID
-              - NET_BIND_SERVICE
-              - SYS_CHROOT
-              - SETFCAP
-          resources:
-            limits:
-              cpu: "1"
-              memory: 1024Mi
-            requests:
-              cpu: "1"
-              memory: 1024Mi
-              
-      volumes:
-        - name: webusers
-          secret:
-            secretName: ace-ibm-ace
-            optional: true
-            items:
-            - key: viewerusers
-              path: viewer-users.txt
-            - key: adminusers
-              path: admin-users.txt
-        - name: odbcini
-          secret:
-            secretName: ace-ibm-ace-configuration
-            optional: true
-            items:
-            - key: odbcini
-              path: odbc.ini
-        - name: policy
-          secret:
-            secretName: ace-ibm-ace-configuration
-            optional: true
-            items:
-            - key: policy
-              path: default.policyxml
-            - key: policyDescriptor
-              path: policy.descriptor
-        - name: serverconf
-          secret:
-            secretName: ace-ibm-ace-configuration
-            optional: true
-            items:
-            - key: serverconf
-              path: server.conf.yaml
-        - name: setdbparms
-          secret:
-            secretName: ace-ibm-ace-configuration
-            optional: true
-            items:
-            - key: setdbparms
-              path: setdbparms.txt
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: ace-ibm-ace
+    labels:
+      app: ibm-ace      
+  spec:
+    replicas: 3
+    template:
+      metadata:
+        name: ace-ibm-ace
+        labels:
+          app: ibm-ace
+      spec:
+        containers:
+          - name: ace-ibm-ace
+            image: registry.ixpress.icicibank.com:5000/aceapp
+            ports:
+              - containerPort: 7600
+                name: webui
+              - containerPort: 7800
+                name: ace-http
+              - containerPort: 7843
+                name: ace-https
+            env:
+              - name: LICENSE
+                value: "accept"
+              - name: ACE_SERVER_NAME
+                value: "ace"
+              - name: SERVICE_NAME
+                value: ace-ibm-ace
+              - name: LOG_FORMAT
+                value: "json"
+              - name: ACE_ENABLE_METRICS
+                value: "true"
+            volumeMounts:
+              - name: webusers
+                mountPath: "/home/aceuser/initial-config/webusers"
+              - name: odbcini
+                mountPath: "/home/aceuser/initial-config/odbcini"
+              - name: policy
+                mountPath: "/home/aceuser/initial-config/policy"
+              - name: serverconf
+                mountPath: "/home/aceuser/initial-config/serverconf"
+              - name: truststore
+                mountPath: "/home/aceuser/initial-config/truststore"		              
+        volumes:
+          - name: webusers
+            configMap:
+              name: webusers              
+          - name: odbcini
+            configMap:
+              name: odbcini 
+          - name: policy
+            configMap:
+              name: policy 
+          - name: serverconf
+            configMap:
+              name: serverconf              
+          - name: truststore
+            configMap:
+              name: truststore 
+				
+parameters:
+- description: The name assigned to all of the objects defined in this template.
+  displayName: Name
+  name: NAME
+  required: true
+- description: MQ_QMGR_NAME .
+  displayName: QMGR NAME
+  name: MQ_QMGR_NAME
+  value: QMGR name
+  required: true
+- description: The image name .
+  displayName: MQImage
+  name: MQ_IMAGE
+  value: Name_of_image_to_be_provided
+- description: The MQ image version .
+  displayName: MQImageVersion
+  name: MQ_VERSION
+  value: Name_of_image_to_be_provided
+- description: The DOCKER_REGISTRY with port
+  displayName: DockerRegistryWithPort
+  name: DOCKER_REGISTRY
+  value: Name_of_image_to_be_provided
+- description: The Registry Namespace in Docker Registry
+  displayName: RegistryNamespace
+  name: REGISTY_NAMESPACE
+  value: Name_of_image_to_be_provided
+- description: The Log Format
+  displayName: LogFormat
+  name: LOG_FORMAT
+  value: "basic"
+- description: Memory Limit Of MQ
+  displayName: MemoryLimt
+  name: MEMORY_LIMIT
+  value: 512Mi
+- description: CPU Limit Of MQ
+  displayName: CpuLimit
+  name: CPU_LIMIT  
+  value: 500m 				
