@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: mq-app
+  labels:
+    app: mq-app
+objects:
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: pvc-${NAME}-mqm
+    labels:
+      app: mq-app
+  spec:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: 256Mi
+    storageClassName: managed-nfs-storage
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ${NAME}
+    labels:
+      app: mq-app
+  spec:
+    type: ClusterIP
+    ports:
+    - port: 9443
+      name: console-https
+    - port: 1414
+      name: qmgr
+    - targetPort: 9157
+      port: 9157
+      protocol: TCP
+      name: prometheus
+    selector:
+      app: mq-app 	
+- apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
+    labels:
+      app: mq-app
+    name: mq-app
+  spec:
+    selector:
+      matchLabels:
+        app: mq-app 
+    template:
+      metadata:
+        labels:
+          app: mq-app
+      spec:
+        containers:
+          - name: qmgr
+            image: "registry.ixpress.icicibank.com:5000/ibm-ace-gold-prod"
+            imagePullPolicy: Always
+            terminationMessagePath: "/run/termination-log"
+            ports:
+            - containerPort: 1414
+            - containerPort: 9443
+            - containerPort: 9157
+            env:
+            - name: LICENSE
+              value: "accept"
+            - name: MQ_QMGR_NAME
+              value: ${MQ_QMGR_NAME}
+            - name: MQ_MULTI_INSTANCE
+              value: "false"
+            - name: LOG_FORMAT
+              value: "basic"
+            volumeMounts:
+            - mountPath: "/mnt/mqm"
+              name: pvc-${NAME}-mqm
+            resources:
+              limits:
+                memory: "${MEMORY_LIMIT}"	  
+                cpu: "${CPU_LIMIT}"	  
+              requests:
+                memory: ${MEMORY_LIMIT}  
+                cpu: ${CPU_LIMIT}	
+        volumes:
+        - name: pvc-${NAME}-mqm
+          persistentVolumeClaim:
+            claimName: pvc-${NAME}-mqm	 
+
+parameters:
+- description: The name assigned to all of the objects defined in this template.
+  displayName: Name
+  name: NAME
+  required: true
+- description: MQ_QMGR_NAME .
+  displayName: QMGR NAME
+  name: MQ_QMGR_NAME
+  value: QMGR name
+  required: true
+- description: The image name .
+  displayName: MQImage
+  name: MQ_IMAGE
+  value: Name_of_image_to_be_provided
+- description: The MQ image version .
+  displayName: MQImageVersion
+  name: MQ_VERSION
+  value: Name_of_image_to_be_provided
+- description: The DOCKER_REGISTRY with port
+  displayName: DockerRegistryWithPort
+  name: DOCKER_REGISTRY
+  value: Name_of_image_to_be_provided
+- description: The Registry Namespace in Docker Registry
+  displayName: RegistryNamespace
+  name: REGISTY_NAMESPACE
+  value: Name_of_image_to_be_provided
+- description: The Log Format
+  displayName: LogFormat
+  name: LOG_FORMAT
+  value: "basic"
+- description: Memory Limit Of MQ
+  displayName: MemoryLimt
+  name: MEMORY_LIMIT
+  value: 512Mi
+- description: CPU Limit Of MQ
+  displayName: CpuLimit
+  name: CPU_LIMIT  
+  value: 500m 

@@ -1,6 +1,15 @@
-FROM ace-only:latest
+FROM registry.ixpress.icicibank.com:5000/ibm-ace-gold-prod
 
 USER root
+
+RUN /opt/ibm/ace-11/ace make registry global accept license silently \
+  && useradd -u 1000 -d /home/aceuser -G mqbrkrs,wheel aceuser \
+  && mkdir -p /var/mqsi \
+  && mkdir -p /home/aceuser/initial-config \
+  && su - -c '. /opt/ibm/ace-11/server/bin/mqsiprofile && mqsicreateworkdir /home/aceuser/ace-server' \
+  && chmod -R 777 /home/aceuser \
+  && chmod -R 777 /var/mqsi \
+  && su - -c '. /opt/ibm/ace-11/server/bin/mqsiprofile && echo $MQSI_JREPATH && chmod g+w $MQSI_JREPATH/lib/security/cacerts'
 
 COPY bars_aceonly /home/aceuser/bars
 RUN  chmod -R ugo+rwx /home/aceuser
